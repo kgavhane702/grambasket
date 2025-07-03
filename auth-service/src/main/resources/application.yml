@@ -1,14 +1,14 @@
+# File: auth-service/src/main/resources/application.yml
+
 server:
   port: 8081
 
 spring:
   application:
     name: auth-service
-
   data:
     mongodb:
       uri: mongodb://localhost:27017/grambasket_auth_db
-
   cloud:
     discovery:
       enabled: true
@@ -24,7 +24,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info  # or '*' for all
+        include: health,info,prometheus # Expose prometheus for metrics
   endpoint:
     health:
       show-details: always
@@ -32,6 +32,19 @@ management:
 auth:
   jwt:
     secret: "b7f8e2c9a1d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4S5T6U7V8W9X0Y1Z2"
-    expiration: 3600000
-    refresh-expiration: 604800000
+    expiration: 3600000 # 1 hour
+    refresh-expiration: 604800000 # 7 days
     issuer: grambasket-auth-service
+
+# ===================================================================
+# LOGGING CONFIGURATION
+# ===================================================================
+logging:
+  level:
+    root: INFO
+    com.grambasket.authservice: DEBUG # More detailed logging for your own code
+    org.springframework.security: INFO # Quiets down verbose security logs
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] [%-40.40logger{39}] : %msg%n"
+  file:
+    name: logs/auth-service.log # Optional: Log to a file for persistence
