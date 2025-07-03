@@ -1,0 +1,16 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: cart-service
+  # Code Quality Insight: This service is an ideal candidate for a fast in-memory store
+  # like Redis instead of MongoDB for better performance.
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+
