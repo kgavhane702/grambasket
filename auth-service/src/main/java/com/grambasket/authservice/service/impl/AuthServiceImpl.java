@@ -1,4 +1,4 @@
-// Updated file: service/impl/AuthServiceImpl.java
+// File: auth-service/src/main/java/com/grambasket/authservice/service/impl/AuthServiceImpl.java
 package com.grambasket.authservice.service.impl;
 
 import com.grambasket.authservice.dto.*;
@@ -6,12 +6,13 @@ import com.grambasket.authservice.exception.UsernameAlreadyExistsException;
 import com.grambasket.authservice.model.Role;
 import com.grambasket.authservice.model.User;
 import com.grambasket.authservice.repository.UserRepository;
+import com.grambasket.authservice.security.JwtService;
 import com.grambasket.authservice.service.AuthService;
-import com.grambasket.authservice.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final TokenService tokenService;
+    private final JwtService jwtService;
 
     @Override
     @Transactional
@@ -39,7 +40,9 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         userRepository.save(user);
 
-        return tokenService.generateAndPersistTokens(user);
+        String accessToken = jwtService.generateAccessToken(user.getUsername());
+        String refreshToken = jwtService.generateRefreshToken(user.getUsername());
+        return new AuthResponse(accessToken, refreshToken);
     }
 
     @Override
@@ -47,18 +50,22 @@ public class AuthServiceImpl implements AuthService {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
-        User user = (User) authentication.getPrincipal();
-        return tokenService.generateAndPersistTokens(user);
+        UserDetails user = (UserDetails) authentication.getPrincipal();
+        String accessToken = jwtService.generateAccessToken(user.getUsername());
+        String refreshToken = jwtService.generateRefreshToken(user.getUsername());
+        return new AuthResponse(accessToken, refreshToken);
     }
 
     @Override
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
-        User user = tokenService.validateAndGetUserFromRefreshToken(request.getRefreshToken());
-        return tokenService.generateAndPersistTokens(user);
-    }
-
-    @Override
-    public void logout(String refreshToken) {
-        tokenService.revokeRefreshToken(refreshToken);
+    public AuthResponse refreshToken(String refreshToken) {
+        String username = jwtService.extractUsername(refreshToken);
+        UserDetails user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        if (!jwtService.isTokenValid(refreshToken, user)) {
+            throw new RuntimeException("Invalid or expired refresh token");
+        }
+        String newAccessToken = jwtService.generateAccessToken(username);
+        String newRefreshToken = jwtService.generateRefreshToken(username); // for rotation
+        return new AuthResponse(newAccessToken, newRefreshToken);
     }
 }
