@@ -11,7 +11,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-key: "mysupersecretkeymysupersecretkey12"
+          secret-key: "mysupersecurekeymysupersecurekeymysupersecurekeymysupersecurekey12"
 
 eureka:
   client:

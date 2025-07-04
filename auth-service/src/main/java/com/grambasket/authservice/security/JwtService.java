@@ -34,9 +34,12 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        this.signInKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        // CORRECTED: The log now accurately reflects the algorithm used in buildToken()
-        log.info("JWT signing key initialized successfully for use with HS512 algorithm.");
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 64) {
+            throw new IllegalArgumentException("Secret key must be at least 64 bytes for HS512");
+        }
+        this.signInKey = Keys.hmacShaKeyFor(keyBytes);
+        log.info("JWT signing key initialized for use with HS512 algorithm.");
     }
 
     public String extractUsername(String token) {
@@ -45,15 +48,11 @@ public class JwtService {
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
-        if (claims == null) {
-            return null;
-        }
-        return claimsResolver.apply(claims);
+        return claims != null ? claimsResolver.apply(claims) : null;
     }
 
     public String generateAccessToken(UserDetails userDetails) {
         String subject = ((User) userDetails).getId();
-        log.info("Generating access token for user subject: {}", subject);
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
@@ -63,8 +62,6 @@ public class JwtService {
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        String subject = ((User) userDetails).getId();
-        log.info("Generating refresh token for user subject: {}", subject);
         return buildToken(Map.of(), userDetails, jwtProperties.getRefreshExpiration());
     }
 
@@ -74,7 +71,7 @@ public class JwtService {
                 .setClaims(extraClaims)
                 .setSubject(subject)
                 .setIssuer(jwtProperties.getIssuer())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(signInKey, SignatureAlgorithm.HS512)
                 .compact();
@@ -82,13 +79,10 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
-            final String subject = extractUsername(token);
-            boolean isSubjectValid = subject != null && subject.equals(((User) userDetails).getId());
-            boolean isTokenExpired = isTokenExpired(token);
-            log.info("Validating token for subject: {}. Subject match: {}, Token expired: {}", subject, isSubjectValid, isTokenExpired);
-            return isSubjectValid && !isTokenExpired;
+            String subject = extractUsername(token);
+            return subject != null && subject.equals(((User) userDetails).getId()) && !isTokenExpired(token);
         } catch (Exception e) {
-            log.warn("Token validation failed for subject {}: {}", ((User) userDetails).getId(), e.getMessage());
+            log.warn("Token validation failed: {}", e.getMessage());
             return false;
         }
     }
@@ -109,17 +103,9 @@ public class JwtService {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-        } catch (ExpiredJwtException e) {
-            log.warn("JWT token has expired: {}", e.getMessage());
-        } catch (UnsupportedJwtException e) {
-            log.warn("JWT token is unsupported: {}", e.getMessage());
-        } catch (MalformedJwtException e) {
-            log.warn("Invalid JWT token format: {}", e.getMessage());
-        } catch (io.jsonwebtoken.security.SignatureException e) {
-            log.error("JWT signature validation failed: {}", e.getMessage());
-        } catch (IllegalArgumentException e) {
-            log.error("JWT claims string is empty or null: {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            log.error("Error extracting JWT claims: {}", e.getMessage());
+            return null;
         }
-        return null;
     }
 }

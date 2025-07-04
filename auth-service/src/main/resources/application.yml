@@ -7,14 +7,17 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/grambasket_auth_db
-  cloud:
-    discovery:
-      enabled: true
   security:
     oauth2:
       resourceserver:
         jwt:
-          secret-key: "mysupersecretkeymysupersecretkey12"
+          secret-key: "mysupersecurekeymysupersecurekeymysupersecurekeymysupersecurekey12"
+
+auth:
+  jwt:
+    expiration: 3600000 # 1 hour
+    refresh-expiration: 604800000 # 7 days
+    issuer: grambasket-auth-service
 
 eureka:
   client:
@@ -22,12 +25,6 @@ eureka:
       defaultZone: http://localhost:8761/eureka
     register-with-eureka: true
     fetch-registry: true
-
-auth:
-  jwt:
-    expiration: 3600000
-    refresh-expiration: 604800000
-    issuer: grambasket-auth-service
 
 logging:
   level:

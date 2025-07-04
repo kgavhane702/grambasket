@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.*;
 import org.springframework.security.web.*;
@@ -55,12 +56,17 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @Primary
     @Bean
     public JwtDecoder jwtDecoder() {
-        SecretKeySpec secretKey = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA512");
-        log.info("Configuring JwtDecoder with HmacSHA512 algorithm.");
-        return NimbusJwtDecoder.withSecretKey(secretKey).build();
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA512");
+        log.info("Configuring JwtDecoder with HmacSHA512 and explicitly setting HS512.");
+        return NimbusJwtDecoder.withSecretKey(secretKey)
+                .macAlgorithm(MacAlgorithm.HS512) // 👈 REQUIRED!
+                .build();
     }
+
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
