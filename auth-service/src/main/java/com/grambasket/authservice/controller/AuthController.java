@@ -1,4 +1,3 @@
-// File: auth-service/src/main/java/com/grambasket/authservice/controller/AuthController.java
 package com.grambasket.authservice.controller;
 
 import com.grambasket.authservice.dto.AuthResponse;
@@ -59,17 +58,9 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "User has been logged out successfully."));
     }
 
-    // --- Private Helper Methods ---
-
-    /**
-     * Builds the final ResponseEntity for the client. It sets the refresh token
-     * in a secure cookie and returns only the access token in the response body.
-     */
     private ResponseEntity<AuthResponse> buildClientResponse(AuthResponse fullAuthResponse, HttpServletResponse httpServletResponse, HttpStatus status) {
         setRefreshTokenCookie(httpServletResponse, fullAuthResponse.getRefreshToken());
 
-        // Build the response DTO for the client, omitting the refresh token.
-        // The refreshToken field will be null and thus excluded from JSON.
         AuthResponse clientResponse = AuthResponse.builder()
                 .accessToken(fullAuthResponse.getAccessToken())
                 .build();
@@ -77,27 +68,19 @@ public class AuthController {
         return new ResponseEntity<>(clientResponse, status);
     }
 
-    /**
-     * Sets the refresh token as a secure, HttpOnly cookie.
-     */
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         Cookie cookie = new Cookie("gmbasket-refresh-token", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setPath("/"); // Make it accessible across the entire application
-        cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days in seconds
-        // cookie.setSecure(true); // IMPORTANT: Uncomment this in production when using HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge(7 * 24 * 60 * 60);
         response.addCookie(cookie);
     }
 
-    /**
-     * Clears the refresh token cookie by setting its max age to 0.
-     */
     private void clearRefreshTokenCookie(HttpServletResponse response) {
         Cookie cookie = new Cookie("gmbasket-refresh-token", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
-        cookie.setMaxAge(0); // Expire the cookie immediately
-        // cookie.setSecure(true); // IMPORTANT: Uncomment this in production when using HTTPS
+        cookie.setMaxAge(0);
         response.addCookie(cookie);
     }
 }

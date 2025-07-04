@@ -1,13 +1,18 @@
+// File: auth-service/src/main/java/com/grambasket/authservice/security/JwtService.java
 package com.grambasket.authservice.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
@@ -28,9 +33,19 @@ public class JwtService {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateAccessToken(String username) {
+    /**
+     * MODIFIED: This method now accepts UserDetails to include roles in the token.
+     */
+    public String generateAccessToken(UserDetails userDetails) {
+        // Extract roles from the UserDetails object
+        Collection<? extends GrantedAuthority> authorities = userDetails.getAuthorities();
+        List<String> roles = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(userDetails.getUsername())
+                .claim("roles", roles) // <-- ESSENTIAL: This adds the roles claim
                 .setIssuer(jwtIssuer)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
@@ -38,6 +53,9 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * Refresh tokens typically don't need roles, so this can remain unchanged.
+     */
     public String generateRefreshToken(String username) {
         return Jwts.builder()
                 .setSubject(username)
@@ -68,8 +86,8 @@ public class JwtService {
             boolean isExpired = expiration != null && expiration.before(new Date());
 
             return username.equals(userDetails.getUsername()) &&
-                   jwtIssuer.equals(claims.getBody().getIssuer()) &&
-                   !isExpired;
+                    jwtIssuer.equals(claims.getBody().getIssuer()) &&
+                    !isExpired;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }

@@ -1,3 +1,4 @@
+// File: auth-service/src/main/java/com/grambasket/authservice/model/User.java
 package com.grambasket.authservice.model;
 
 import lombok.*;
@@ -21,32 +22,32 @@ public class User implements UserDetails {
     private String id;
     private String username;
     private String password;
-    private Set<Role> roles;
+
+    /**
+     * MODIFIED: Added @Builder.Default to prevent NullPointerExceptions.
+     * Every new user will now automatically be assigned the USER role.
+     */
+    @Builder.Default
+    private Set<Role> roles = Set.of(Role.USER);
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        // Using toSet() is slightly more idiomatic here since roles is a Set.
         return this.roles.stream()
                 .map(role -> new SimpleGrantedAuthority(role.name()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
     }
 
+    // ... other UserDetails methods are fine ...
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    public boolean isAccountNonLocked() { return true; }
 
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    public boolean isEnabled() { return true; }
 }
