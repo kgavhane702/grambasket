@@ -11,7 +11,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-key: "b7f8e2c9a1d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4S5T6U7V8W9X0Y1Z2"
+          secret-key: "mysupersecretkeymysupersecretkey12"
 
 eureka:
   client:
@@ -24,7 +24,7 @@ logging:
   level:
     root: INFO
     com.grambasket.userservice: DEBUG
-    org.springframework.security: INFO
+    org.springframework.security: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] [%-40.40logger{39}] : %msg%n"
   file:

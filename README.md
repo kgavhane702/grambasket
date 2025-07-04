@@ -10,7 +10,7 @@ The primary components established so far are:
 
 *   **Discovery Server (`discovery-server`):** Utilizes Netflix Eureka to provide a dynamic service registry. All other microservices register with Eureka, allowing them to locate and communicate with each other without hardcoded addresses.
 *   **API Gateway (`gateway-service`):** Acts as the single, unified entry point for all external client requests. It uses Spring Cloud Gateway to route traffic to the appropriate downstream service and is the ideal place to handle cross-cutting concerns like security, rate limiting, and logging.
-*   **Authentication Service (`auth-service`):** A dedicated service responsible for all user identity and access management. It handles user registration, login, and the issuance and validation of JSON Web Tokens (JWT).
+*   **Authentication Service (`auth-service`):** A dedicated service responsible for all userProfile identity and access management. It handles userProfile registration, login, and the issuance and validation of JSON Web Tokens (JWT).
 
 ## Technology Stack
 
@@ -36,13 +36,13 @@ The primary components established so far are:
 
 ### `auth-service`
 
-*   **Purpose:** Manages user accounts and authentication.
+*   **Purpose:** Manages userProfile accounts and authentication.
 *   **Port:** `8083` (or as configured)
 *   **API Endpoints:**
-    *   `POST /api/auth-service/register`: Creates a new user account.
-    *   `POST /api/auth-service/login`: Authenticates a user and returns JWT access and refresh tokens.
+    *   `POST /api/auth-service/register`: Creates a new userProfile account.
+    *   `POST /api/auth-service/login`: Authenticates a userProfile and returns JWT access and refresh tokens.
     *   `POST /api/auth-service/refresh`: Generates a new access token using a valid refresh token.
-    *   `POST /api/auth-service/logout`: Invalidates a user's session.
+    *   `POST /api/auth-service/logout`: Invalidates a userProfile's session.
 
 ## How to Run
 

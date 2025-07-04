@@ -25,10 +25,8 @@ public class AdminController {
             @PathVariable String username,
             @RequestBody Set<Role> roles
     ) {
-        // The service layer handles the business logic and throws exceptions if needed.
         authService.updateUserRoles(username, roles);
 
-        // On success, we build a clear and informative response body.
         Map<String, Object> responseBody = new LinkedHashMap<>();
         responseBody.put("timestamp", LocalDateTime.now());
         responseBody.put("message", "Roles updated successfully");

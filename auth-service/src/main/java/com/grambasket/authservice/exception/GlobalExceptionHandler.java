@@ -18,6 +18,13 @@ import java.time.LocalDateTime;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ProfileCreationException.class)
+    public ResponseEntity<ErrorResponse> handleProfileCreationException(ProfileCreationException ex, HttpServletRequest request) {
+        log.error("Downstream service failure during profile creation for path: {}. Cause: {}", request.getRequestURI(), ex.getCause() != null ? ex.getCause().getMessage() : "Unknown");
+        String clientMessage = "We are unable to complete your registration at this time due to a temporary issue. Please try again later.";
+        return buildErrorResponse(clientMessage, HttpStatus.SERVICE_UNAVAILABLE, request);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Access Denied: {} for path: {}", ex.getMessage(), request.getRequestURI());

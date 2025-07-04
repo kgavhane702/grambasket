@@ -1,95 +1,125 @@
-// File: auth-service/src/main/java/com/grambasket/authservice/security/JwtService.java
 package com.grambasket.authservice.security;
 
+import com.grambasket.authservice.config.JwtProperties;
+import com.grambasket.authservice.model.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class JwtService {
 
-    @Value("${auth.jwt.secret}")
+    @Value("${spring.security.oauth2.resourceserver.jwt.secret-key}")
     private String jwtSecret;
 
-    @Value("${auth.jwt.expiration}")
-    private long jwtExpirationMs;
+    private final JwtProperties jwtProperties;
 
-    @Value("${auth.jwt.refresh-expiration}")
-    private long jwtRefreshExpirationMs;
+    private Key signInKey;
 
-    @Value("${auth.jwt.issuer}")
-    private String jwtIssuer;
-
-    private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
-    }
-
-    /**
-     * MODIFIED: This method now accepts UserDetails to include roles in the token.
-     */
-    public String generateAccessToken(UserDetails userDetails) {
-        // Extract roles from the UserDetails object
-        Collection<? extends GrantedAuthority> authorities = userDetails.getAuthorities();
-        List<String> roles = authorities.stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-
-        return Jwts.builder()
-                .setSubject(userDetails.getUsername())
-                .claim("roles", roles) // <-- ESSENTIAL: This adds the roles claim
-                .setIssuer(jwtIssuer)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    /**
-     * Refresh tokens typically don't need roles, so this can remain unchanged.
-     */
-    public String generateRefreshToken(String username) {
-        return Jwts.builder()
-                .setSubject(username)
-                .setIssuer(jwtIssuer)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtRefreshExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+    @PostConstruct
+    public void init() {
+        this.signInKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        // CORRECTED: The log now accurately reflects the algorithm used in buildToken()
+        log.info("JWT signing key initialized successfully for use with HS512 algorithm.");
     }
 
     public String extractUsername(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        if (claims == null) {
+            return null;
+        }
+        return claimsResolver.apply(claims);
+    }
+
+    public String generateAccessToken(UserDetails userDetails) {
+        String subject = ((User) userDetails).getId();
+        log.info("Generating access token for user subject: {}", subject);
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        Map<String, Object> claims = Map.of("roles", roles);
+        return buildToken(claims, userDetails, jwtProperties.getExpiration());
+    }
+
+    public String generateRefreshToken(UserDetails userDetails) {
+        String subject = ((User) userDetails).getId();
+        log.info("Generating refresh token for user subject: {}", subject);
+        return buildToken(Map.of(), userDetails, jwtProperties.getRefreshExpiration());
+    }
+
+    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
+        String subject = ((User) userDetails).getId();
+        return Jwts.builder()
+                .setClaims(extraClaims)
+                .setSubject(subject)
+                .setIssuer(jwtProperties.getIssuer())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(signInKey, SignatureAlgorithm.HS512)
+                .compact();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
         try {
-            Jws<Claims> claims = Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token);
-            Date expiration = claims.getBody().getExpiration();
-            boolean isExpired = expiration != null && expiration.before(new Date());
-
-            return username.equals(userDetails.getUsername()) &&
-                    jwtIssuer.equals(claims.getBody().getIssuer()) &&
-                    !isExpired;
-        } catch (JwtException | IllegalArgumentException e) {
+            final String subject = extractUsername(token);
+            boolean isSubjectValid = subject != null && subject.equals(((User) userDetails).getId());
+            boolean isTokenExpired = isTokenExpired(token);
+            log.info("Validating token for subject: {}. Subject match: {}, Token expired: {}", subject, isSubjectValid, isTokenExpired);
+            return isSubjectValid && !isTokenExpired;
+        } catch (Exception e) {
+            log.warn("Token validation failed for subject {}: {}", ((User) userDetails).getId(), e.getMessage());
             return false;
         }
+    }
+
+    private boolean isTokenExpired(String token) {
+        Date expiration = extractExpiration(token);
+        return expiration != null && expiration.before(new Date());
+    }
+
+    private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    private Claims extractAllClaims(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(signInKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT token has expired: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            log.warn("JWT token is unsupported: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            log.warn("Invalid JWT token format: {}", e.getMessage());
+        } catch (io.jsonwebtoken.security.SignatureException e) {
+            log.error("JWT signature validation failed: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.error("JWT claims string is empty or null: {}", e.getMessage());
+        }
+        return null;
     }
 }
