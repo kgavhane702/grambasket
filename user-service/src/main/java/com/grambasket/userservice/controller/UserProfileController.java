@@ -28,7 +28,7 @@ public class UserProfileController {
         return ResponseEntity.ok(userService.getUserProfileByAuthId(authId));
     }
 
-    @PatchMapping("/me")
+    @PutMapping("/me")
     public ResponseEntity<UserResponse> updateCurrentUserProfile(
             Authentication authentication,
             @Valid @RequestBody UserUpdateRequest updateRequest) {
