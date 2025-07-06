@@ -12,11 +12,17 @@ import lombok.NoArgsConstructor;
 public class CommunicationPreferences {
 
     @Builder.Default
-    private boolean emailEnabled = true;
+    private boolean emailForOrderUpdates = true;
 
     @Builder.Default
-    private boolean smsEnabled = false;
+    private boolean emailForPromotions = false;
 
     @Builder.Default
-    private boolean pushNotificationsEnabled = true;
+    private boolean smsForOrderUpdates = true;
+
+    @Builder.Default
+    private boolean pushForOrderUpdates = true;
+
+    @Builder.Default
+    private boolean pushForPromotions = false;
 }

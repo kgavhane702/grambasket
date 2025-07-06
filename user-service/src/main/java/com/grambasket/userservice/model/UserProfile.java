@@ -1,19 +1,24 @@
 package com.grambasket.userservice.model;
 
-import lombok.*;
-import org.springframework.data.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "users")
+@Document(collection = "user_profiles")
 public class UserProfile {
+
     @Id
     private String id;
 
@@ -22,8 +27,12 @@ public class UserProfile {
 
     private String firstName;
     private String lastName;
+
+    @Indexed(unique = true)
     private String email;
-    private String phoneNumber;
+
+    @Builder.Default
+    private List<String> phoneNumbers = new ArrayList<>();
 
     @Builder.Default
     private List<Address> addresses = new ArrayList<>();
@@ -31,8 +40,14 @@ public class UserProfile {
     @Builder.Default
     private CommunicationPreferences communicationPreferences = new CommunicationPreferences();
 
-    @CreatedDate
-    private LocalDateTime createdAt;
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Builder.Default
+    private boolean active = true;
+
+    private LocalDateTime deactivatedAt;
 }

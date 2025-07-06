@@ -1,7 +1,10 @@
 package com.grambasket.authservice.service.impl;
 
 import com.grambasket.authservice.client.UserServiceClient;
-import com.grambasket.authservice.dto.*;
+import com.grambasket.authservice.dto.AuthResponse;
+import com.grambasket.authservice.dto.InternalCreateUserRequest;
+import com.grambasket.authservice.dto.LoginRequest;
+import com.grambasket.authservice.dto.RegisterRequest;
 import com.grambasket.authservice.exception.ProfileCreationException;
 import com.grambasket.authservice.exception.TokenValidationException;
 import com.grambasket.authservice.exception.UserNotFoundException;
@@ -44,7 +47,6 @@ public class AuthServiceImpl implements AuthService {
             throw new UsernameAlreadyExistsException("An account with this email already exists: " + request.getEmail());
         }
 
-        // FIXED: Use .email() instead of the non-existent .username()
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -52,7 +54,6 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        // The getUsername() method correctly returns the email from the User object.
         log.info("User '{}' saved in auth-db with ID: {}.", savedUser.getUsername(), savedUser.getId());
 
         triggerProfileCreation(savedUser.getId(), savedUser.getUsername());
@@ -71,11 +72,8 @@ public class AuthServiceImpl implements AuthService {
         } catch (FeignException e) {
             log.error("CRITICAL: Feign client failed to create user profile for authId: {}. Status: {}, Response: {}",
                     authId, e.status(), e.contentUTF8(), e);
-
-            // Compensating Transaction: Rollback user creation in auth-service
             log.warn("Initiating rollback. Deleting user with authId '{}' from auth-db due to profile creation failure.", authId);
             userRepository.deleteById(authId);
-
             throw new ProfileCreationException("User registration failed during profile creation. The registration has been rolled back.", e);
         }
     }
@@ -84,7 +82,6 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequest request) {
         log.info("Attempting to authenticate user: {}", request.getEmail());
         try {
-            // This is correct. Spring Security uses the first parameter as the 'username' for the UserDetailsService.
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
@@ -103,7 +100,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse refreshToken(String refreshToken) {
         log.info("Attempting to refresh token.");
-        String email = jwtService.extractUsername(refreshToken); // The 'username' in the token is the email.
+        String email = jwtService.extractUsername(refreshToken);
         UserDetails userDetails = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.error("User not found during token refresh for email: {}", email);
@@ -132,5 +129,16 @@ public class AuthServiceImpl implements AuthService {
         user.setRoles(newRoles);
         userRepository.save(user);
         log.info("Successfully updated roles for user: {}", email);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUserCredentials(String authId) {
+        log.warn("Attempting to permanently delete credentials for authId: {}", authId);
+        User user = userRepository.findById(authId)
+                .orElseThrow(() -> new UserNotFoundException("No user found with authId: " + authId + " to delete."));
+
+        userRepository.delete(user);
+        log.info("Successfully deleted credentials for authId: {}", authId);
     }
 }

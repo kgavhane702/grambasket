@@ -50,7 +50,6 @@
         <module>gateway-service</module>
         <module>auth-service</module>
         <module>user-service</module>
-        <module>delivery-service</module>
     </modules>
 
     <dependencyManagement>

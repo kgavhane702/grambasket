@@ -1,18 +1,24 @@
 package com.grambasket.userservice.dto;
 
+import com.grambasket.userservice.model.Address;
+import com.grambasket.userservice.model.CommunicationPreferences;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 public class UserResponse {
-    // Note: We do NOT expose the internal 'id' or 'authId'
+    private String id;
+    private String authId;
     private String firstName;
     private String lastName;
     private String email;
-    private String phoneNumber;
-    private List<AddressDto> addresses;
-    private CommunicationPreferencesDto communicationPreferences;
+    private List<String> phoneNumbers;
+    private List<Address> addresses;
+    private CommunicationPreferences communicationPreferences;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean active;
+    private LocalDateTime deactivatedAt;
 }
