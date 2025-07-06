@@ -1,6 +1,6 @@
 package com.grambasket.userservice.service.impl;
 
-import com.grambasket.userservice.client.AuthServiceClient;
+import com.grambasket.userservice.delegate.AuthServiceDelegate;
 import com.grambasket.userservice.dto.UserResponse;
 import com.grambasket.userservice.dto.UserUpdateRequest;
 import com.grambasket.userservice.exception.UserNotFoundException;
@@ -11,6 +11,9 @@ import com.grambasket.userservice.repository.UserRepository;
 import com.grambasket.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +24,10 @@ import java.time.LocalDateTime;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
+    public static final String USER_PROFILE_CACHE = "userProfiles";
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final AuthServiceClient authServiceClient;
+    private final AuthServiceDelegate authServiceDelegate;
 
     @Override
     @Transactional
@@ -43,14 +47,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = USER_PROFILE_CACHE, key = "#authId")
     public UserResponse getUserProfileByAuthId(String authId) {
+        log.info("CACHE MISS: Fetching user profile from DB for authId: {}", authId);
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         return userMapper.toUserResponse(userProfile);
     }
 
     @Override
     @Transactional
+    @CachePut(value = USER_PROFILE_CACHE, key = "#authId")
     public UserResponse updateUserProfile(String authId, UserUpdateRequest updateRequest) {
+        log.info("CACHE UPDATE on user profile update for authId: {}", authId);
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         userMapper.updateUserFromDto(updateRequest, userProfile);
         userProfile.setUpdatedAt(LocalDateTime.now());
@@ -60,27 +68,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    @CacheEvict(value = USER_PROFILE_CACHE, key = "#authId")
     public void deleteUserProfile(String authId) {
-        log.warn("USER: Performing HARD DELETE for authId: {}", authId);
+        log.warn("CACHE EVICT on user profile deletion for authId: {}", authId);
         UserProfile userProfile = findUserByAuthIdInternal(authId);
 
-        try {
-            log.info("Requesting credential deletion in auth-service for authId: {}", authId);
-            authServiceClient.deleteUserCredentials(authId);
-            log.info("Successfully requested credential deletion for authId: {}", authId);
-        } catch (Exception e) {
-            log.error("Failed to delete credentials in auth-service for authId: {}. Manual cleanup may be required. Error: {}", authId, e.getMessage());
-        }
-
+        authServiceDelegate.deleteUserCredentials(authId);
         userRepository.delete(userProfile);
         log.info("Successfully deleted user profile from user-db for authId: {}", authId);
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = USER_PROFILE_CACHE, key = "#authId")
     public void deactivateUserProfile(String authId) {
+        log.warn("CACHE EVICT on user profile deactivation for authId: {}", authId);
         UserProfile userProfile = findUserByAuthIdInternal(authId);
-        log.warn("Deactivating user account for authId: {}", authId);
         userProfile.setActive(false);
         userProfile.setDeactivatedAt(LocalDateTime.now());
         userRepository.save(userProfile);
@@ -88,10 +91,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    @CachePut(value = USER_PROFILE_CACHE, key = "#authId")
     public UserResponse updateCommunicationPreferences(String authId, CommunicationPreferences preferences) {
+        log.info("CACHE UPDATE on preference update for authId: {}", authId);
         UserProfile userProfile = findUserByAuthIdInternal(authId);
-        log.info("Updating communication preferences for authId: {}", authId);
         userProfile.setCommunicationPreferences(preferences);
+        userProfile.setUpdatedAt(LocalDateTime.now());
         UserProfile savedProfile = userRepository.save(userProfile);
         return userMapper.toUserResponse(savedProfile);
     }

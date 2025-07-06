@@ -10,9 +10,12 @@ import com.grambasket.userservice.model.UserProfile;
 import com.grambasket.userservice.repository.UserRepository;
 import com.grambasket.userservice.service.AddressService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +29,7 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     @Transactional
+    @CachePut(value = UserServiceImpl.USER_PROFILE_CACHE, key = "#authId")
     public UserResponse addAddress(String authId, Address newAddress) {
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         List<Address> addresses = userProfile.getAddresses();
@@ -37,13 +41,14 @@ public class AddressServiceImpl implements AddressService {
         }
 
         addresses.add(newAddress);
-        userProfile.setUpdatedAt(userProfile.getUpdatedAt());
+        userProfile.setUpdatedAt(LocalDateTime.now());
         UserProfile savedProfile = userRepository.save(userProfile);
         return userMapper.toUserResponse(savedProfile);
     }
 
     @Override
     @Transactional
+    @CachePut(value = UserServiceImpl.USER_PROFILE_CACHE, key = "#authId")
     public UserResponse updateAddress(String authId, String addressId, Address updatedAddress) {
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         Address addressToUpdate = findAddressByIdInternal(userProfile, addressId);
@@ -58,13 +63,14 @@ public class AddressServiceImpl implements AddressService {
             });
             addressToUpdate.setDefault(true);
         }
-        userProfile.setUpdatedAt(userProfile.getUpdatedAt());
+        userProfile.setUpdatedAt(LocalDateTime.now());
         UserProfile savedProfile = userRepository.save(userProfile);
         return userMapper.toUserResponse(savedProfile);
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = UserServiceImpl.USER_PROFILE_CACHE, key = "#authId")
     public void deleteAddress(String authId, String addressId) {
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         Address addressToDelete = findAddressByIdInternal(userProfile, addressId);
@@ -75,19 +81,20 @@ public class AddressServiceImpl implements AddressService {
         if (wasDefault && !userProfile.getAddresses().isEmpty()) {
             userProfile.getAddresses().get(0).setDefault(true);
         }
-        userProfile.setUpdatedAt(userProfile.getUpdatedAt());
+        userProfile.setUpdatedAt(LocalDateTime.now());
         userRepository.save(userProfile);
     }
 
     @Override
     @Transactional
+    @CachePut(value = UserServiceImpl.USER_PROFILE_CACHE, key = "#authId")
     public UserResponse setDefaultAddress(String authId, String addressId) {
         UserProfile userProfile = findUserByAuthIdInternal(authId);
         Address newDefaultAddress = findAddressByIdInternal(userProfile, addressId);
 
         userProfile.getAddresses().forEach(addr -> addr.setDefault(false));
         newDefaultAddress.setDefault(true);
-        userProfile.setUpdatedAt(userProfile.getUpdatedAt());
+        userProfile.setUpdatedAt(LocalDateTime.now());
         UserProfile savedProfile = userRepository.save(userProfile);
         return userMapper.toUserResponse(savedProfile);
     }

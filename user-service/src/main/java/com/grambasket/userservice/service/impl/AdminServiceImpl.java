@@ -1,6 +1,7 @@
 package com.grambasket.userservice.service.impl;
 
 import com.grambasket.userservice.dto.UserResponse;
+import com.grambasket.userservice.dto.UserUpdateRequest;
 import com.grambasket.userservice.exception.UserNotFoundException;
 import com.grambasket.userservice.mapper.UserMapper;
 import com.grambasket.userservice.model.UserProfile;
@@ -56,6 +57,15 @@ public class AdminServiceImpl implements AdminService {
         UserProfile userProfile = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
         return userMapper.toUserResponse(userProfile);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateUserProfile(String userId, UserUpdateRequest updateRequest) {
+        log.info("ADMIN: Updating user profile for internal id: {}", userId);
+        UserProfile userProfile = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+        return userService.updateUserProfile(userProfile.getAuthId(), updateRequest);
     }
 
     @Override

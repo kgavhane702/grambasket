@@ -39,3 +39,18 @@ management:
   endpoint:
     health:
       show-details: always
+
+# --- RESILIENCE4J CIRCUIT BREAKER CONFIGURATION ---
+resilience4j:
+  circuitbreaker:
+    instances:
+      authService:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - feign.FeignException
